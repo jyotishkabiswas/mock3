@@ -127,8 +127,8 @@ class FileStore
         # write destination files
         .then (res) ->
             [data, meta] = res
-            data_written = FS.write(content, data, 'wb')
-            metadata_written = FS.write(metadata, meta, 'w')
+            data_written = FS.write content, data, 'wb'
+            metadata_written = FS.write metadata, meta, 'w'
             return Q.all [data_written, metadata_written]
         # write new metadata if requested
         .then (res) ->
@@ -138,8 +138,8 @@ class FileStore
                 return FS.write metadata, yaml.dump(metadata_struct)
         # copy buckets in memory
         .then (res) ->
-            src_bucket = get_bucket(src_bucket_name)
-            dst_bucket = get_bucket(dst_bucket_name)
+            src_bucket = get_bucket src_bucket_name
+            dst_bucket = get_bucket dst_bucket_name
             src_bucket = src_bucket || create_bucket src_bucket_name
             dst_bucket = dst_bucket || create_bucket dst_bucket_name
             obj = new S3Object()
@@ -165,6 +165,5 @@ class FileStore
 
     create_metadata: (content, request) ->
 
-
-        
+module.exports = FileStore        
 
