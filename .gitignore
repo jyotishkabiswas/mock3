@@ -27,3 +27,6 @@ node_modules
 
 # Users Environment Variables
 .lock-wscript
+
+# default root directory for s3
+s3_root
