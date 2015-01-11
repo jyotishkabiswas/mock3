@@ -1,4 +1,4 @@
-exec = require('child-process').exec, child
+exec = require('child_process').exec
 q = require 'q'
 FS = require 'q-io/fs'
 should = require 'should'
@@ -23,7 +23,6 @@ describe 'Boto Test', ->
                 stdout.should.match /stored/
                 d.resolve FS.removeTree "/tmp/fakes3_upload"
             d
-        .then (res) ->
         .catch (err) ->
             throw err
 

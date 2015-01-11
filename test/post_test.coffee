@@ -4,7 +4,6 @@ should = require 'should'
 
 
 url = 'http://posttest.localhost:10453/'
-file = FS.rea
 
 describe 'Post Test', ->
 
@@ -16,10 +15,10 @@ describe 'Post Test', ->
 
     describe 'test redirect', ->
 
-        it 'successful post should rediriect', ->
+        it 'successful post should redirect', ->
             client = new RestClient()
             FS.read('__filename', 'rb').then (data) ->
-                client.post @url, 
+                client.post @url,
                     key: 'uploads/12345/#{__filename}'
                     'success_action_redirect': 'http://somewhere.else.com/'
                     'file': data
@@ -32,19 +31,19 @@ describe 'Post Test', ->
         it 'successful post should respond with status 200', ->
             client = new RestClient()
             FS.read('__filename', 'rb').then (data) ->
-                client.post @url, 
+                client.post @url,
                     key: 'uploads/12345/#{__filename}'
                     success_action_status: '200'
                     file: data
                 , (data, response) ->
                     data.code.should.equal 200
-        
+
     describe 'test status 201', ->
 
         it 'successful post should respond with status 201', ->
             client = new RestClient()
             FS.read('__filename', 'rb').then (data) ->
-                client.post @url, 
+                client.post @url,
                     key: 'uploads/12345/#{__filename}'
                     success_action_status: '201'
                     file: data
@@ -53,4 +52,4 @@ describe 'Post Test', ->
 
 
 
-        
+

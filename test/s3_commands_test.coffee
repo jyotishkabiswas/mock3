@@ -2,22 +2,23 @@ AWS = require 'aws-sdk'
 should = require 'should'
 
 s3 = new AWS.S3
-    access_key_id: '123'
-    secret_access_key: 'abc'
-    s3_endpoing: 'localhost'
-    s3_port: 10453
-    use_ssl: false
+    accessKeyId: '123'
+    secretAccessKey: 'abc'
+    endpoint: 'localhost:10453'
+    sslEnabled: false
+
+console.log s3
 
 describe 'S3 Commands Test', ->
 
     describe 'test create bucket', ->
 
-        bucket = s3.createBucket 
+        bucket = s3.createBucket
             Bucket: "node_aws_s3"
-        , (err, data) ->    
+        , (err, data) ->
             if err? then throw err
             data?.should.be.true
-            s3.bucketExists 
+            s3.bucketExists
                 Bucket: "node_aws_s3"
             , (err, data) ->
                 if err? then throw err
@@ -31,11 +32,11 @@ describe 'S3 Commands Test', ->
     describe 'test destroy bucket', ->
 
         it 'bucket should not exist once deleted', ->
-            s3.createBucket 
+            s3.createBucket
                 Bucket: "deletebucket"
             , (err, data) ->
                 if err? then throw err
-                s3.deletebucket 
+                s3.deletebucket
                     Bucket: "deletebucket"
                 , (err, data) ->
                     if err? then throw err
@@ -48,17 +49,17 @@ describe 'S3 Commands Test', ->
     describe 'test store', ->
 
         it 'bucket should contain correct value for stored object', ->
-            s3.createBucket 
+            s3.createBucket
                 Bucket: "node_aws_s3"
             , (err, data) ->
                 if err? then throw err
-                s3.putObject 
+                s3.putObject
                     Bucket: "node_aws_s3"
                     Key: "Hello"
                     Body: "World"
                 , (err, data) ->
                     if err? then throw err
-                    s3.getObject 
+                    s3.getObject
                         Bucket: "node_aws_s3"
                         Key: "Object Key"
                     , (err, data) ->
@@ -68,20 +69,20 @@ describe 'S3 Commands Test', ->
     describe 'test large store', ->
 
         it 'bucket should contain correct value for large stored object', ->
-            s3.createBucket 
+            s3.createBucket
                 Bucket: "node_aws_s3"
             , (err, data) ->
                 if err? then throw err
                 buf = new Buffer(50000)
                 for i in [0...50000]
                     buf.write "i"
-                s3.upload 
+                s3.upload
                     Bucket: "node_aws_s3"
                     Key: "Hello"
                     Body: buf
                 , (err, data) ->
                     if err? then throw err
-                    s3.getObject 
+                    s3.getObject
                         Bucket: "node_aws_s3"
                         Key: "Object Key"
                     , (err, data) ->
@@ -98,13 +99,13 @@ describe 'S3 Commands Test', ->
                 Bucket: "node_aws_s3"
             , (err, data) ->
                 if err? then throw err
-                s3.putObject 
+                s3.putObject
                     Bucket: "node_aws_s3"
                     Key: "Meta"
                     Body: "data"
                 , (err, data) ->
                     if err? then throw err
-                    s3.getObject 
+                    s3.getObject
                         Bucket: "node_aws_s3"
                         Key: "Meta"
                     , (err, data) ->
@@ -116,7 +117,7 @@ describe 'S3 Commands Test', ->
                         data.Key = "Meta"
                         s3.putObject data, (err, data) ->
                             if err? then throw err
-                            s3.getObject 
+                            s3.getObject
                                 Bucket: "node_aws_s3"
                                 Key: "Meta"
                             , (err, data) ->
@@ -132,19 +133,19 @@ describe 'S3 Commands Test', ->
                 Bucket: 'test_copy_to'
             , (err, data) ->
                 if err? then throw err
-                s3.createObject 
+                s3.createObject
                     Bucket: 'test_copy_to'
                     Key: 'key1'
                     Body 'asdf'
                 , (err, data) ->
                     if err? then throw err
-                    s3.copyObject 
+                    s3.copyObject
                         Bucket: 'test_copy_to'
                         CopySource: 'test_copy_to/key1'
                         Key: 'key2'
                     , (err, data) ->
                         if err? then throw err
-                        s3.getObject 
+                        s3.getObject
                             Bucket: 'test_copy_to'
                             Key: 'key2'
                         , (err, data) ->

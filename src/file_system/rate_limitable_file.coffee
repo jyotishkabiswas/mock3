@@ -45,7 +45,10 @@ file_open = (path, flags, charset, options) ->
         stream = FS.createWriteStream(String(path), nodeOptions)
         Writer stream, charset
     else
-        stream = FS.createReadStream(String(path), nodeOptions) if @rate_limit? else FS.createReadStream(String(path), nodeOptions).pipe(new Throttle @rate_limit)
+        if @rate_limit?
+            stream = FS.createReadStream(String(path), nodeOptions)
+        else
+            stream = FS.createReadStream(String(path), nodeOptions).pipe(new Throttle @rate_limit)
         Reader stream, charset
 
 class RateLimitableFile
