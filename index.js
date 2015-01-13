@@ -1,2 +1,2 @@
-#!/usr/bin/env node
-require(__dirname + "/bin/mock3");
+require("coffee-script/register");
+module.exports = require('./src/s3server');

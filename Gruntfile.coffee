@@ -24,7 +24,7 @@ module.exports = (grunt) ->
                 configFile: 'coffeelint.json'
 
         mochaTest:
-            src: ["test/**/*.coffee"]
+            src: ["test/setup.coffee", "test/commands/*.coffee"]
             options:
                 reporter: "spec"
 
@@ -46,7 +46,7 @@ module.exports = (grunt) ->
 
         nodemon:
             dev:
-                script: 'index.js'
+                script: 'bin/mock3.js'
                 options:
                     args: ["-r #{process.env.S3_ROOT || './s3_root'}", "-p 10453"]
 

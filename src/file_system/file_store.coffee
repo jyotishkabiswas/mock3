@@ -61,10 +61,22 @@ class FileStore
 
     get_object: (bucket, object_name, request) ->
         d = q.defer()
+
+        if req.get("range")?[0]
+            res.status 206
+            range = req.get("range")[0].match /bytes=(\d*)-(\d*)/
+            if range?.length > 0
+                start = parseInt range[1]
+                finish = parseInt range[2]
+                fd = RateLimitableFile.open FS.join(obj_root, "content"),
+                    flags: 'rb'
+                    begin: start
+                    end: finish
         real_obj = new S3Object()
         obj_root = FS.join(root, bucket, object_name, @SHUCK_METADATA_DIR)
-        data = FS.read FS.join(obj_root, "metadata") #, {encoding: 'utf8'}
-        fd = RateLimitableFile.open FS.join(obj_root, "metadata"), 'r'
+        data = FS.read FS.join(obj_root, "metadata"), 'r' #, {encoding: 'utf8'}
+        unless fd?
+            fd = RateLimitableFile.open FS.join(obj_root, "content"), 'rb'
         stats = FS.stat FS.join(obj_root, "content")
 
         Q.all([data, fd, stats]).then (res) ->
@@ -74,14 +86,14 @@ class FileStore
             real_obj.md5 = metadata.md5
             real_obj.content_type = metadata.content_type || "application/octet-stream"
             real_obj.io = fd
-            real_obj.size = metadata.size
+            real_obj.size = metadata.size || 0
             real_obj.creation_date = stats.ctime.toISOString()
             real_obj.modified_date = metadata.modified_date || stats.mtime.toISOString()
             real_obj.custom_metadata = metadata.custom_metadata || {}
+            real_obj.root = obj_root
             d.resolve real_obj
         .fail (err) ->
             d.reject err
-
         d
 
     object_metadata: (bucket, object) ->
@@ -165,5 +177,5 @@ class FileStore
 
     create_metadata: (content, request) ->
 
-module.exports = FileStore        
+module.exports = FileStore
 
