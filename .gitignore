@@ -31,4 +31,3 @@ node_modules
 s3_root
 .tags
 .DS_Store
-**/*/.DS_Store
