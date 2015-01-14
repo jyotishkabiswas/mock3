@@ -62,7 +62,7 @@ class SortedObjectList
                 @sorted_set.push pseudo
 
         count = 0
-        @sorted_set.forEach (s3_object) ->
+        @sorted_set.forEach (s3_object) =>
             if marker_found and (not prefix or s3_object.name.indexOf(prefix) == 0)
                 ++count
                 if count <= max_keys
