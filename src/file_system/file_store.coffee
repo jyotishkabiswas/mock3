@@ -40,7 +40,7 @@ class FileStore
 
     create_bucket: (bucket) ->
         d = q.defer()
-        FS.makeTree(FS.join(@root, bucket)).then () ->
+        FS.makeTree(FS.join(@root, bucket)).then () =>
             bucket_obj = new Bucket(bucket, new Date(), [])
             unless @bucket_hash[bucket]
                 @buckets.push bucket_obj
@@ -54,7 +54,7 @@ class FileStore
             throw new NoSuchBucket()
         if bucket.objects.length > 0
             throw new BucketNotEmpty()
-        FS.removeTree(@get_bucket_folder(bucket)).then () ->
+        FS.removeTree(@get_bucket_folder(bucket)).then () =>
             delete @bucket_hash[bucket_name]
 
 
@@ -108,17 +108,17 @@ class FileStore
         metadata = null
 
         # read metadata and create new directory
-        FS.read(src_metadata_filename).then (data) ->
+        FS.read(src_metadata_filename).then (data) =>
             src_metadata = yaml.load data
             src_content_filename = FS.join src_root, "content"
             dst_filename = FS.join @root, dst_bucket_name, dst_name
-            metadata_dir = FS.join dst_filename, SHUCK_METADATA_DIR
+            metadata_dir = FS.join dst_filename, @SHUCK_METADATA_DIR
             FS.makeTree dst_filename
         # create new metadata directory
-        .then (res) ->
+        .then (res) =>
             FS.makeTree metadata_dir
         # copy files
-        .then (res) ->
+        .then (res) =>
             content = FS.join metadata_dir, "content"
             metadata = FS.join metadata_dir, "metadata"
             if src_bucket_name isnt dst_bucket_name or src_name isnt dst_name
@@ -126,13 +126,13 @@ class FileStore
                 src_metadata_copied = FS.copy src_metadata_filename, metadata
                 return q.all [src_content_copied, src_metadata_copied]
         # write new metadata if requested
-        .then (res) ->
+        .then (res) =>
             metadata_directive = request.header["x-amz-metadata-directive"][0]
             if metadata_directive is "REPLACE"
                 metadata_struct = @create_metadata content, request
                 return FS.write metadata, yaml.dump(metadata_struct)
         # copy buckets in memory
-        .then (res) ->
+        .then (res) =>
             src_bucket = get_bucket src_bucket_name
             dst_bucket = get_bucket dst_bucket_name
             src_bucket = src_bucket || create_bucket src_bucket_name
@@ -146,7 +146,7 @@ class FileStore
             src_obj = src_bucket.find src_name
             dst_bucket.add obj
             d.resolve obj
-        .catch (err) ->
+        .catch (err) =>
             d.reject err
         d.promise
 
@@ -242,37 +242,37 @@ class FileStore
             content_paths.push content_path
 
         # check md5 hashes
-        q.all([_md5digest(path) for path in content_paths]).then (res) ->
+        q.all([_md5digest(path) for path in content_paths]).then (res) =>
             for md5, i  in res
                 if parts[i] isnt md5
                     throw new Error "Invalid part"
             tmp_path = FS.join @root, 'tmp', "#{bucket.name}_#{upload_id}_#{object_name}"
             FS.makeTree tmp_path
         # append parts to tmp file
-        .then (res) ->
+        .then (res) =>
             funcs = []
             for part_path in part_paths
-                func = () ->
+                func = () =>
                     @_append_part(tmp_path, part_path)
                 funcs.push func
             funcs.reduce Q.when, q(initialVal)
         # copy over tmp file and metadata
-        .then (res) ->
+        .then (res) =>
             @_do_store_object bucket, object_name, {path: tmp_path}, req
         # clean up parts
-        .then (real_obj) ->
+        .then (real_obj) =>
             obj = real_obj
             q.all [@delete_object(bucket, "#{upload_id}_#{object_name}_part#{part.number}", req) for part in parts]
         # remove base directory for upload
         .then (res)
             FS.removeTree base_path
         # clean up tmp file
-        .then (res) ->
+        .then (res) =>
             FS.removeTree tmp_path
         # resolve object
-        .then (res) ->
+        .then (res) =>
             d.resolve obj
-        .catch (err) ->
+        .catch (err) =>
             d.reject err
 
         d.promise
