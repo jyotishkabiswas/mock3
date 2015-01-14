@@ -17,7 +17,6 @@ class FileStore
         @root = root
         @buckets = []
         @bucket_hash = {}
-
         glob FS.join(root, "*"), null, (err, files) ->
             if err? then throw err
             files.forEach (bucket) ->
@@ -47,7 +46,7 @@ class FileStore
                 @buckets.push bucket_obj
                 @bucket_hash[bucket] = bucket_obj
             d.resolve bucket_obj
-        d
+        d.promise
 
     delete_bucket: (bucket_name) ->
         bucket = @get_bucket bucket_name
@@ -79,8 +78,7 @@ class FileStore
             fd = RateLimitableFile.open FS.join(obj_root, "content"), 'rb'
         stats = FS.stat FS.join(obj_root, "content")
 
-        Q.all([data, fd, stats]).then (res) ->
-            [data, fd, stats] = res
+        q.all([data, fd, stats]).spread (data, fd, stats) ->
             metadata = yaml.load data
             real_obj.name = object_name
             real_obj.md5 = metadata.md5
@@ -90,11 +88,11 @@ class FileStore
             real_obj.creation_date = stats.ctime.toISOString()
             real_obj.modified_date = metadata.modified_date || stats.mtime.toISOString()
             real_obj.custom_metadata = metadata.custom_metadata || {}
-            real_obj.root = obj_root
+            # real_obj.root = obj_root
             d.resolve real_obj
         .fail (err) ->
             d.reject err
-        d
+        d.promise
 
     object_metadata: (bucket, object) ->
 
@@ -119,29 +117,14 @@ class FileStore
         # create new metadata directory
         .then (res) ->
             FS.makeTree metadata_dir
-        # open source files
+        # copy files
         .then (res) ->
             content = FS.join metadata_dir, "content"
             metadata = FS.join metadata_dir, "metadata"
             if src_bucket_name isnt dst_bucket_name or src_name isnt dst_name
-                src_content_file = FS.open src_content_filename, 'rb'
-                src_metadata_file = FS.open src_metadata_filename, 'r'
-                return Q.all [src_content_file, src_metadata_file]
-        # read source files
-        .then (res) ->
-            unless res?
-                d.resolve null
-                return
-            [src_content_file, src_metadata_file] = res
-            data = src_content_file.read()
-            meta = src_metadata_file.read()
-            return Q.all [data, meta]
-        # write destination files
-        .then (res) ->
-            [data, meta] = res
-            data_written = FS.write content, data, 'wb'
-            metadata_written = FS.write metadata, meta, 'w'
-            return Q.all [data_written, metadata_written]
+                src_content_copied = FS.copy src_content_filename, content
+                src_metadata_copied = FS.copy src_metadata_filename, metadata
+                return q.all [src_content_copied, src_metadata_copied]
         # write new metadata if requested
         .then (res) ->
             metadata_directive = request.header["x-amz-metadata-directive"][0]
@@ -165,17 +148,181 @@ class FileStore
             d.resolve obj
         .catch (err) ->
             d.reject err
-        d
+        d.promise
 
-    store_object: (bucket, object_name, request) ->
+    store_object: (bucket, object_name, req) ->
+        d = q.defer()
 
-    do_store_object: (bucket, object_name, filedata, request) ->
+        unless req.files?.length == 1
+            d.reject 'Bad Request'
+            return
+        file = req.files[0]
 
-    delete_object: (bucket, object_name, request) ->
+        @_do_store_object(bucket, object_name, file, req).then (res) ->
+            d.resolve res
+        .fail (err) ->
+            d.reject err
+
+        d.promise
+
+    _do_store_object: (bucket, object_name, file, req) ->
+        d = q.defer()
+
+        filename = FS.join @root, bucket.name, object_name
+        metadata_dir = FS.join filename, @SHUCK_METADATA_DIR
+        content  = FS.join filename, @SHUCK_METADATA_DIR, "content"
+        metadata = FS.join filename, @SHUCK_METADATA_DIR, "metadata"
+        obj = null
+
+        FS.makeTree(filename).then (res) ->
+            FS.makeTree metadata_dir
+        .then (res) ->
+            FS.copy file.path, content
+        .then (res) ->
+            FS.remove file.path
+            @create_metadata content, req
+        .then (metadata_struct) ->
+            obj = new S3Object()
+            obj.name = object_name
+            obj.md5 = metadata_struct.md5
+            obj.content_type = metadata_struct.content_type
+            obj.size = metadata_struct.size
+            obj.modified_date = metadata.modified_date
+            # obj.root = metadata_dir
+            bucket.add obj
+            FS.write metadata, data, 'w'
+        .then (res) ->
+            d.resolve obj
+        .catch (err) ->
+            d.reject err
+        d.promise
+
+    _append_part: (tmp_path, part_path) ->
+        d = q.defer()
+
+        filename = FS.join @root, bucket.name, object_name
+        metadata_dir = FS.join filename, @SHUCK_METADATA_DIR
+        content  = FS.join filename, @SHUCK_METADATA_DIR, "content"
+        metadata = FS.join filename, @SHUCK_METADATA_DIR, "metadata"
+
+        content_path = FS.join part_path, @SHUCK_METADATA_DIR, 'content'
+        FS.read(content_path, 'rb').then (data) ->
+            FS.append content, data
+        .then (res) ->
+            d.resolve true
+        .catch (err) ->
+            d.reject err
+
+        d.promise
 
     combine_object_parts: (bucket, upload_id, object_name, parts, request) ->
+        d = q.defer()
 
-    create_metadata: (content, request) ->
+        upload_path = FS.join @root, bucket.name
+        base_path = FS.join upload_path, "#{upload_id}_#{object_name}"
+
+        filename = FS.join @root, bucket.name, object_name
+        metadata_dir = FS.join filename, @SHUCK_METADATA_DIR
+        content  = FS.join filename, @SHUCK_METADATA_DIR, "content"
+        metadata = FS.join filename, @SHUCK_METADATA_DIR, "metadata"
+
+        part_paths = []
+        content_paths = []
+
+        tmp_path = null
+        obj = null
+
+        parts.sort (a, b) ->
+            a.part_number - b.part_number
+
+        for part in parts
+            part_path = "#{base_path}_part#{part.number}"
+            content_path = FS.join part_path, @SHUCK_METADATA_DIR, 'content'
+            part_paths.push part_path
+            content_paths.push content_path
+
+        # check md5 hashes
+        q.all([_md5digest(path) for path in content_paths]).then (res) ->
+            for md5, i  in res
+                if parts[i] isnt md5
+                    throw new Error "Invalid part"
+            tmp_path = FS.join @root, 'tmp', "#{bucket.name}_#{upload_id}_#{object_name}"
+            FS.makeTree tmp_path
+        # append parts to tmp file
+        .then (res) ->
+            funcs = []
+            for part_path in part_paths
+                func = () ->
+                    @_append_part(tmp_path, part_path)
+                funcs.push func
+            funcs.reduce Q.when, q(initialVal)
+        # copy over tmp file and metadata
+        .then (res) ->
+            @_do_store_object bucket, object_name, {path: tmp_path}, req
+        # clean up parts
+        .then (real_obj) ->
+            obj = real_obj
+            q.all [@delete_object(bucket, "#{upload_id}_#{object_name}_part#{part.number}", req) for part in parts]
+        # remove base directory for upload
+        .then (res)
+            FS.removeTree base_path
+        # clean up tmp file
+        .then (res) ->
+            FS.removeTree tmp_path
+        # resolve object
+        .then (res) ->
+            d.resolve obj
+        .catch (err) ->
+            d.reject err
+
+        d.promise
+
+    delete_object: (bucket, object_name, request) ->
+        d = q.defer()
+
+        filename = FS.join @root, bucket.name, object_name
+        FS.removeTree(filename).then (res) ->
+            object = bucket.find object_name
+            bucket.remove object
+            d.resolve true
+        .catch (err) ->
+            d.reject err
+
+        d.promise
+
+    # TODO: get metadata from request.
+    _create_metadata: (content, request) ->
+
+        d = q.defer()
+        metadata = {}
+        @_md5digest(content).then (md5) ->
+            metadata.md5 = md5
+            FS.stat content
+        .then (stats) ->
+            metadata.size = stats.size
+            metadata.modified_date = stats.mtime.toISOString()
+            metadata.content_type = req.get 'content-type'
+            metadata.custom_metadata = {}
+            for k, v of req.headers
+                match = k.match /^x-amz-meta-(.*)$/
+                if match?[1]?
+                    match_key = match[1]
+                    metadata.custom_metadata[match_key] = v.join ', '
+            d.resolve metadata
+        .catch (err) ->
+            d.reject err
+
+        d.promise
+
+    _md5digest: (filepath) ->
+        m = q.defer()
+        md5sum = Crypto.createHash 'md5'
+        FS.read(filepath, 'rb').then (data) ->
+            md5sum.update data
+            m.resolve md5sum.digest('hex')
+        .fail (err) ->
+            m.reject err
+        m.promise
 
 module.exports = FileStore
 

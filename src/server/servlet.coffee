@@ -60,13 +60,13 @@ class Servlet
                 @store.get_object(s_req.bucket, s_req.object, req).then (real_obj) ->
                     res.status 200
                     res.set 'Content-Type', real_obj.content_type
-                    FS.stat(FS.join(real_obj.root, 'content'))
+                    FS.stat(FS.join(@store.root, s_req.bucket, s_req.object,, FileStore.SHUCK_METADATA_DIR, 'content'))
                 .then (stats) ->
                     res.set 'Last-Modified', Date.parse(real_obj.modified_date).toUTCString()
                     res.set 'ETag', "\"#{real_obj.md5}\""
                     res.set 'Accept-Ranges', 'bytes'
                     res.set 'Last-Ranges', 'bytes'
-                    for k, v in real_obj.custom_metadata
+                    for k, v of real_obj.custom_metadata
                         res.set "x-amz-meta-#{k}", v
                     content_length = stats.size
                     if req.get("range")?[0]
@@ -147,7 +147,7 @@ class Servlet
                 res.end()
         else
             bucket_obj = @store.get_bucket s_req.bucket
-            store.copy_object(bucket_obj, part_name, req).then (real_obj) ->
+            store.store_object(bucket_obj, part_name, req).then (real_obj) ->
                 res.set 'ETag', "\"#{real_obj.md5}\""
                 res.end ""
 
@@ -352,13 +352,11 @@ class Servlet
                 etag: part.getElementsByTagName('ETag')[0].data
         parts
 
-
-
     dump_request: (req) ->
         console.log "----------Dump Request-------------"
         console.log req.method
         console.log req.baseUrl
-        for k, v in req
+        for k, v of req
             console.log "#{k}: #{v}"
         console.log "----------End Dump -------------"
 

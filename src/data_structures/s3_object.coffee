@@ -20,7 +20,7 @@ class S3Object extends Object
         @io = null
         @content_type = null
         @custom_metadata = null
-        @root = null
+        # @root = null
 
     hash: ->
         @name.hashCode()
