@@ -1,5 +1,7 @@
 'use strict'
 
+path = require 'path'
+
 module.exports = (grunt) ->
 
     # load grunt tasks
@@ -24,7 +26,11 @@ module.exports = (grunt) ->
                 configFile: 'coffeelint.json'
 
         mochaTest:
-            src: ["test/setup.coffee", "test/commands/*.coffee"]
+            src: [
+                "test/filestore/*.coffee"
+                "test/commands/s3_commands_test.coffee"
+                # "test/commands/post_test.coffee"
+            ]
             options:
                 reporter: "spec"
 
@@ -43,12 +49,13 @@ module.exports = (grunt) ->
 
         clean:
             s3_root: ['./s3_root/*']
+            test_root: ['./test/s3_root']
 
         nodemon:
             dev:
                 script: 'bin/mock3.js'
                 options:
-                    args: ["-r #{process.env.S3_ROOT || './s3_root'}", "-p 10453"]
+                    args: ["-r #{process.env.S3_ROOT || path.join __dirname, 's3_root'}", "-p 10453"]
 
         notify:
             test:
@@ -59,7 +66,7 @@ module.exports = (grunt) ->
                     title: 'Started s3 server'
 
     grunt.registerTask 'test', [
-        'clean'
+        'clean:test_root'
         'coffeelint'
         'mochaTest'
         'notify:test'

@@ -21,7 +21,6 @@ class Servlet
                 res.set 'Content-Type', 'application/xml'
                 buckets = @store.buckets
                 res.send XMLAdapter.buckets buckets
-                res.end()
             when 'LS_BUCKET'
                 bucket_obj = @store.get_bucket s_req.bucket
                 if bucket_obj?
@@ -44,23 +43,20 @@ class Servlet
                         delimiter: delimiter || null
                     bq = bucket_obj.query_for_range query
                     res.send XMLAdapter.bucket_query(bq)
-                    res.end()
                 else
                     res.status 404
                     res.set 'Content-Type', 'application/xml'
                     res.send XMLAdapter.error_no_such_bucket(s_req.bucket)
-                    res.end()
             when 'GET_ACL'
                 res.status 200
                 res.set 'Content-Type', 'application/xml'
                 res.send XMLAdapter.acl()
-                res.end()
             when 'GET'
                 real_obj = null
                 @store.get_object(s_req.bucket, s_req.object, req).then (real_obj) ->
                     res.status 200
                     res.set 'Content-Type', real_obj.content_type
-                    FS.stat(FS.join(@store.root, s_req.bucket, s_req.object,, FileStore.SHUCK_METADATA_DIR, 'content'))
+                    FS.stat(FS.join(@store.root, s_req.bucket, s_req.object, FileStore.SHUCK_METADATA_DIR, 'content'))
                 .then (stats) ->
                     res.set 'Last-Modified', Date.parse(real_obj.modified_date).toUTCString()
                     res.set 'ETag', "\"#{real_obj.md5}\""
@@ -84,15 +80,13 @@ class Servlet
                         res.set 'Content-Range', "bytes #{start}-#{finish_str}/#{content_length}"
                         real_obj.io.read().then (data) ->
                             res.send data
-                            res.end()
                             return
                     res.set 'Content-Length', content_length
                     if s_req.http_verb is 'HEAD'
-                        res.end ""
+                        res.end()
                     else
                         real_obj.io.read().then (data) ->
                             res.send data
-                            res.end()
                 .catch (err) ->
                     res.status 404
                     res.set 'Content-Type', 'application/xml'
@@ -103,7 +97,7 @@ class Servlet
         s_req = @_normalize_request req
         query = req.query
 
-        if query.uploadId[0]? then return @do_multipartPUT(req, res)
+        if query.uploadId? then return @do_multipartPUT(req, res)
 
         res.status 200
         res.set 'Content-Type', "text/xml"
@@ -111,7 +105,7 @@ class Servlet
 
         switch s_req.type
             when Request.COPY
-                @store.copy_object(s_req.src_bucket, s_req.src_object, s_req.bucket, s_req.object, request).then (object) ->
+                @store.copy_object(s_req.src_bucket, s_req.src_object, s_req.bucket, s_req.object, req).then (object) ->
                     res.send XMLAdapter.copy_object_result(object)
             when Request.STORE
                 bucket_obj = @store.get_bucket(s_req.bucket)
@@ -128,7 +122,8 @@ class Servlet
                         res.set 'ETag', "\"#{real_obj.md5}\""
                         res.end()
             when Request.CREATE_BUCKET
-                @store.create_bucket s_req.bucket
+                @store.create_bucket(s_req.bucket).then (bucket) ->
+                    res.end()
 
     _do_multipartPUT: (req, res) ->
         s_req = @_normalize_request req
@@ -144,12 +139,11 @@ class Servlet
             @store.copy_object(s_req.src_bucket, s_req.src_object, s_req.bucket, part_name, req).then (real_obj) ->
                 res.set 'Content-Type', 'text/xml'
                 res.send XMLAdapter.copy_object_result(real_obj)
-                res.end()
         else
             bucket_obj = @store.get_bucket s_req.bucket
             store.store_object(bucket_obj, part_name, req).then (real_obj) ->
                 res.set 'ETag', "\"#{real_obj.md5}\""
-                res.end ""
+                res.end()
 
     do_POST: (req, res) ->
         s_req = @_normalize_request req
@@ -164,13 +158,11 @@ class Servlet
         if query.uploads?
             upload_id = crypto.randomBytes(32).toString 'hex'
             res.send XMLAdapter.initiate_multipart_result(s_req.bucket, key, upload_id)
-            res.end()
         else if query.uploadId?
             upload_id = query.uploadId[0]
             bucket_obj = @store.get_bucket(s_req.bucket)
             @store.combine_object_parts(bucket_obj, upload_id, s_req.object, @_parse_complete_multipart_upload(req), req).then (real_obj) ->
                 res.send XMLAdapter.complete_multipart_result(s_req.bucket, real_obj, @hostname, @port)
-                res.end()
         else if req.get('Content-Type').match(/^multipart\/form-data; boundary=(.+)/)?
             success_action_redirect = req.query['success_action_redirect']
             success_action_status = req.query['success_action_status']
@@ -189,20 +181,18 @@ class Servlet
                     if success_action_redirect?
                         res.status 307
                         res.set 'Location', success_action_redirect
-                        res.end ""
+                        res.end()
                     else
                         status_code = success_action_status || 304
                         res.status status_code
                         if status_code is 201
                             res.send XMLAdapter.complete_post_result(s_req.bucket, real_obj, @hostname, @port)
-                            res.end()
         else
             res.status 400
             res.send XMLAdapter.error
                 code: 'BadRequest'
                 message: 'We\'re not sure what you want :('
                 Resource: ''
-            res.end()
 
     do_DELETE: (req, res) ->
         if req.get('origin')? then res.setHeader('Access-Control-Allow-Origin', '*')
@@ -216,14 +206,14 @@ class Servlet
                 @store.delete_bucket s_req.bucket
 
         res.status 204
-        res.end ""
+        res.end()
 
     do_OPTIONS: (req, res) ->
         res.set 'Access-Control-Allow-Origin' , '*'
         res.set 'Access-Control-Allow-Methods', 'PUT, POST, HEAD, GET, OPTIONS'
         res.set 'Access-Control-Allow-Headers', 'X-AMZ-ACL, X-AMZ-EXPIRES, X-AMZ-DATE, Authorization, Content-Length, Content-Type, ETag'
         res.set 'Access-Control-Expose-Headers', 'ETag'
-        res.end ""
+        res.end()
 
     _normalize_delete: (req, s_req) ->
         path = req.baseUrl
@@ -359,4 +349,6 @@ class Servlet
         for k, v of req
             console.log "#{k}: #{v}"
         console.log "----------End Dump -------------"
+
+module.exports = Servlet
 

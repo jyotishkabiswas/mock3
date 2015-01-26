@@ -17,9 +17,9 @@ class FileStore
         @root = root
         @buckets = []
         @bucket_hash = {}
-        glob FS.join(root, "*"), null, (err, files) ->
+        glob FS.join(root, "*"), null, (err, files) =>
             if err? then throw err
-            files.forEach (bucket) ->
+            files.forEach (bucket) =>
                 bucket_name = FS.base bucket
                 bucket_obj = new Bucket bucket_name, new Date(), []
                 @buckets.push bucket_obj
@@ -40,12 +40,18 @@ class FileStore
 
     create_bucket: (bucket) ->
         d = q.defer()
-        FS.makeTree(FS.join(@root, bucket)).then () =>
-            bucket_obj = new Bucket(bucket, new Date(), [])
-            unless @bucket_hash[bucket]
+        if @bucket_hash[bucket]?
+            d.resolve @get_bucket(bucket)
+            return d.promise
+        FS.makeTree(FS.join(@root, bucket)).then (res) =>
+            bucket_obj = new Bucket bucket, new Date(), []
+            unless @bucket_hash[bucket]?
                 @buckets.push bucket_obj
                 @bucket_hash[bucket] = bucket_obj
             d.resolve bucket_obj
+        .catch (err) ->
+            console.log err.stack
+            d.reject err
         d.promise
 
     delete_bucket: (bucket_name) ->
@@ -54,7 +60,7 @@ class FileStore
             throw new NoSuchBucket()
         if bucket.objects.length > 0
             throw new BucketNotEmpty()
-        FS.removeTree(@get_bucket_folder(bucket)).then () =>
+        FS.removeTree(@get_bucket_folder(bucket)).then (res) =>
             delete @bucket_hash[bucket_name]
 
 
@@ -98,7 +104,7 @@ class FileStore
 
     copy_object: (src_bucket_name, src_name, dst_bucket_name, dst_name, request) ->
         d = q.defer()
-        src_root = FS.join @root, src_bucket_name, src_name, SHUCK_METADATA_DIR
+        src_root = FS.join @root, src_bucket_name, src_name, @SHUCK_METADATA_DIR
         src_metadata_filename = FS.join src_root, "metadata"
         src_metadata = null
         src_content_filename = null
@@ -115,10 +121,10 @@ class FileStore
             metadata_dir = FS.join dst_filename, @SHUCK_METADATA_DIR
             FS.makeTree dst_filename
         # create new metadata directory
-        .then (res) =>
+        .then (res) ->
             FS.makeTree metadata_dir
         # copy files
-        .then (res) =>
+        .then (res) ->
             content = FS.join metadata_dir, "content"
             metadata = FS.join metadata_dir, "metadata"
             if src_bucket_name isnt dst_bucket_name or src_name isnt dst_name
@@ -132,7 +138,7 @@ class FileStore
                 metadata_struct = @create_metadata content, request
                 return FS.write metadata, yaml.dump(metadata_struct)
         # copy buckets in memory
-        .then (res) =>
+        .then (res) ->
             src_bucket = get_bucket src_bucket_name
             dst_bucket = get_bucket dst_bucket_name
             src_bucket = src_bucket || create_bucket src_bucket_name
@@ -146,7 +152,7 @@ class FileStore
             src_obj = src_bucket.find src_name
             dst_bucket.add obj
             d.resolve obj
-        .catch (err) =>
+        .catch (err) ->
             d.reject err
         d.promise
 
@@ -178,7 +184,7 @@ class FileStore
             FS.makeTree metadata_dir
         .then (res) ->
             FS.copy file.path, content
-        .then (res) ->
+        .then (res) =>
             FS.remove file.path
             @create_metadata content, req
         .then (metadata_struct) ->
@@ -264,15 +270,15 @@ class FileStore
             obj = real_obj
             q.all [@delete_object(bucket, "#{upload_id}_#{object_name}_part#{part.number}", req) for part in parts]
         # remove base directory for upload
-        .then (res)
+        .then (res) ->
             FS.removeTree base_path
         # clean up tmp file
-        .then (res) =>
+        .then (res) ->
             FS.removeTree tmp_path
         # resolve object
-        .then (res) =>
+        .then (res) ->
             d.resolve obj
-        .catch (err) =>
+        .catch (err) ->
             d.reject err
 
         d.promise

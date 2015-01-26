@@ -17,6 +17,8 @@ class XMLAdapter
             b = bl.ele 'Bucket'
             b.ele 'Name', bucket.name
             b.ele 'CreationDate', bucket.creation_date.toISOString()
+        console.log exml.end { pretty: true, indent: '  ', newline: '\n' }
+        console.log exml.end { pretty: true, indent: '  ', newline: '\n' }
         xml.end { pretty: true, indent: '  ', newline: '\n' }
 
     # <?xml version="1.0" encoding="UTF-8"?>
@@ -32,6 +34,8 @@ class XMLAdapter
         xml.ele 'Message', err.message
         xml.ele 'Resource', err.resource
         xml.ele 'RequestId', 1
+        console.log exml.end { pretty: true, indent: '  ', newline: '\n' }
+        console.log exml.end { pretty: true, indent: '  ', newline: '\n' }
         xml.end { pretty: true, indent: '  ', newline: '\n' }
 
     error_no_such_bucket: (name) ->
@@ -40,6 +44,7 @@ class XMLAdapter
         xml.ele 'Message', 'The resource you requested does not exist.'
         xml.ele 'Resource', name
         xml.ele 'RequestId', 1
+        console.log exml.end { pretty: true, indent: '  ', newline: '\n' }
         xml.end { pretty: true, indent: '  ', newline: '\n' }
 
     error_bucket_not_empty: (name) ->
@@ -48,6 +53,9 @@ class XMLAdapter
         xml.ele 'Message', 'The bucket you tried to delete is not empty.'
         xml.ele 'Resource', name
         xml.ele 'RequestId', 1
+        console.log exml.end { pretty: true, indent: '  ', newline: '\n' }
+        console.log exml.end { pretty: true, indent: '  ', newline: '\n' }
+        xml.end { pretty: true, indent: '  ', newline: '\n' }
 
     error_no_such_key: (name) ->
         xml = XML.create 'Error', xmldec
@@ -56,6 +64,7 @@ class XMLAdapter
         xml.ele 'Resource', name
         xml.ele 'RequestId', 1
         xml.ele 'HostId', 2
+        console.log exml.end { pretty: true, indent: '  ', newline: '\n' }
         xml.end { pretty: true, indent: '  ', newline: '\n' }
 
     bucket: (bucket) ->
@@ -66,6 +75,7 @@ class XMLAdapter
         xml.ele 'Marker'
         xml.ele 'MaxKeys', '1000'
         xml.ele 'IsTruncated', 'false'
+        console.log exml.end { pretty: true, indent: '  ', newline: '\n' }
         xml.end { pretty: true, indent: '  ', newline: '\n' }
 
     # A bucket query gives back the bucket along with contents
@@ -105,6 +115,7 @@ class XMLAdapter
         xml.ele 'MaxKeys', bucket_query.max_keys
         xml.ele 'IsTruncated', bucket_query.is_truncated
         @_append_objects_to_list_bucket_result xml, bucket_query.matches
+        console.log exml.end { pretty: true, indent: '  ', newline: '\n' }
         xml.end { pretty: true, indent: '  ', newline: '\n' }
 
     # Access Control List xml
@@ -120,6 +131,7 @@ class XMLAdapter
         grantee.ele 'ID', 'abc'
         grantee.ele 'DisplayName', 'You'
         grant.ele 'Permission', 'FULL_CONTROL'
+        console.log exml.end { pretty: true, indent: '  ', newline: '\n' }
         xml.end { pretty: true, indent: '  ', newline: '\n' }
 
     # <CopyObjectResult>
@@ -130,6 +142,7 @@ class XMLAdapter
         xml = XML.create 'CopyObjectResult', xmldec
         xml.ele 'LastModified', object.modified_date # .toISOString()
         xml.ele 'ETag', "\"#{object.md5}\""
+        console.log exml.end { pretty: true, indent: '  ', newline: '\n' }
         xml.end { pretty: true, indent: '  ', newline: '\n' }
 
     # <?xml version="1.0" encoding="UTF-8"?>
@@ -143,6 +156,7 @@ class XMLAdapter
         xml.ele 'Bucket', bucket
         xml.ele 'Key', key
         xml.ele 'UploadId', upload_id
+        console.log exml.end { pretty: true, indent: '  ', newline: '\n' }
         xml.end { pretty: true, indent: '  ', newline: '\n' }
 
     # <CompleteMultipartUploadResult>
@@ -160,6 +174,7 @@ class XMLAdapter
         xml.ele 'Bucket', 'bucket'
         xml.ele 'Key', object.name
         xml.ele 'ETag', "\"#{object.md5}\""
+        console.log exml.end { pretty: true, indent: '  ', newline: '\n' }
         xml.end { pretty: true, indent: '  ', newline: '\n' }
 
     # <?xml version="1.0" encoding="UTF-8"?>

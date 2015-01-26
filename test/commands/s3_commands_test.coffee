@@ -1,161 +1,173 @@
 AWS = require 'aws-sdk'
 should = require 'should'
+config = require '../config'
+S3Server = require '../../src/server/s3_server'
 
-s3 = new AWS.S3
-    accessKeyId: '123'
-    secretAccessKey: 'abc'
-    endpoint: 'localhost:10453'
-    sslEnabled: false
+server = new S3Server config
 
-console.log s3
+server.listen().then (res) ->
 
-describe 'S3 Commands Test', ->
+    console.log "server running at #{res.hostname + ':' + res.port}"
 
-    describe 'test create bucket', ->
+    s3 = new AWS.S3
+        accessKeyId: '123'
+        secretAccessKey: 'abc'
+        endpoint: 'localhost:10453'
+        sslEnabled: false
 
-        bucket = s3.createBucket
-            Bucket: "node_aws_s3"
-        , (err, data) ->
-            if err? then throw err
-            data?.should.be.true
-            s3.bucketExists
-                Bucket: "node_aws_s3"
-            , (err, data) ->
-                if err? then throw err
-                data.should.be.true
-            bucket_names = []
-            s3.listBuckets (err, data) ->
-                if err? then throw err
-                bucket_names.push name for name of data
-                bucket_names.should.containEql "node_aws_s3"
+    describe 'S3 Commands Test', ->
 
-    describe 'test destroy bucket', ->
+        describe 'test create bucket', ->
 
-        it 'bucket should not exist once deleted', ->
-            s3.createBucket
-                Bucket: "deletebucket"
-            , (err, data) ->
-                if err? then throw err
-                s3.deletebucket
+            it 'bucket should be created from request', (done) ->
+                bucket = s3.createBucket
+                    Bucket: "s3_commands_test"
+                , (err, data) ->
+                    if err? then throw err
+                    data?.should.be.true
+                    s3.bucketExists
+                        Bucket: "s3_commands_test"
+                    , (err, data) ->
+                        if err? then throw err
+                        data.should.be.true
+                    bucket_names = []
+                    s3.listBuckets (err, data) ->
+                        if err? then throw err
+                        bucket_names.push name for name of data
+                        bucket_names.should.containEql "s3_commands_test"
+                        done()
+
+        describe 'test destroy bucket', ->
+
+            it 'bucket should not exist once deleted', (done) ->
+                s3.createBucket
                     Bucket: "deletebucket"
                 , (err, data) ->
                     if err? then throw err
-                    s3.bucketExists
+                    s3.deleteBucket
                         Bucket: "deletebucket"
                     , (err, data) ->
                         if err? then throw err
-                        data.should.be.false
-
-    describe 'test store', ->
-
-        it 'bucket should contain correct value for stored object', ->
-            s3.createBucket
-                Bucket: "node_aws_s3"
-            , (err, data) ->
-                if err? then throw err
-                s3.putObject
-                    Bucket: "node_aws_s3"
-                    Key: "Hello"
-                    Body: "World"
-                , (err, data) ->
-                    if err? then throw err
-                    s3.getObject
-                        Bucket: "node_aws_s3"
-                        Key: "Object Key"
-                    , (err, data) ->
-                        if err? then throw err
-                        data.body.should.be "World"
-
-    describe 'test large store', ->
-
-        it 'bucket should contain correct value for large stored object', ->
-            s3.createBucket
-                Bucket: "node_aws_s3"
-            , (err, data) ->
-                if err? then throw err
-                buf = new Buffer(50000)
-                for i in [0...50000]
-                    buf.write "i"
-                s3.upload
-                    Bucket: "node_aws_s3"
-                    Key: "Hello"
-                    Body: buf
-                , (err, data) ->
-                    if err? then throw err
-                    s3.getObject
-                        Bucket: "node_aws_s3"
-                        Key: "Object Key"
-                    , (err, data) ->
-                        if err? then throw err
-                        rbuf = new Buffer(50000)
-                        for i in [0...50000]
-                            rbuf.write "i"
-                        data.body.should.equal rbuf
-
-    describe 'test metadata store', ->
-
-        it 'metadata should be stored and returned correctly', ->
-            s3.createBucket
-                Bucket: "node_aws_s3"
-            , (err, data) ->
-                if err? then throw err
-                s3.putObject
-                    Bucket: "node_aws_s3"
-                    Key: "Meta"
-                    Body: "data"
-                , (err, data) ->
-                    if err? then throw err
-                    s3.getObject
-                        Bucket: "node_aws_s3"
-                        Key: "Meta"
-                    , (err, data) ->
-                        if err? then throw err
-                        data.body.should.equal "data"
-                        data.metadata.param1 = "one"
-                        data.metadata.param2 = "two, three"
-                        data.Bucket = "node_aws_s3"
-                        data.Key = "Meta"
-                        s3.putObject data, (err, data) ->
+                        s3.bucketExists
+                            Bucket: "deletebucket"
+                        , (err, data) ->
                             if err? then throw err
-                            s3.getObject
-                                Bucket: "node_aws_s3"
-                                Key: "Meta"
-                            , (err, data) ->
-                                if err? then throw err
-                                data.metadata.param1.should.equal "one"
-                                data.metadata.param2.should.equal "two, three"
+                            data.should.be.false
+                            done()
 
-    describe 'test object copy', ->
+        describe 'test store', ->
 
-        it 'object body should be copied correctly', ->
-
-            s3.createBucket
-                Bucket: 'test_copy_to'
-            , (err, data) ->
-                if err? then throw err
-                s3.createObject
-                    Bucket: 'test_copy_to'
-                    Key: 'key1'
-                    Body 'asdf'
+            it 'bucket should contain correct value for stored object', (done) ->
+                s3.createBucket
+                    Bucket: "s3_commands_test"
                 , (err, data) ->
                     if err? then throw err
-                    s3.copyObject
-                        Bucket: 'test_copy_to'
-                        CopySource: 'test_copy_to/key1'
-                        Key: 'key2'
+                    s3.putObject
+                        Bucket: "s3_commands_test"
+                        Key: "Hello"
+                        Body: "World"
                     , (err, data) ->
                         if err? then throw err
                         s3.getObject
+                            Bucket: "s3_commands_test"
+                            Key: "Object Key"
+                        , (err, data) ->
+                            if err? then throw err
+                            data.body.should.be "World"
+                            done()
+
+        describe 'test large store', ->
+
+            it 'bucket should contain correct value for large stored object', (done) ->
+                s3.createBucket
+                    Bucket: "s3_commands_test"
+                , (err, data) ->
+                    if err? then throw err
+                    buf = new Buffer(50000)
+                    for i in [0...50000]
+                        buf.write "i"
+                    s3.upload
+                        Bucket: "s3_commands_test"
+                        Key: "Hello"
+                        Body: buf
+                    , (err, data) ->
+                        if err? then throw err
+                        s3.getObject
+                            Bucket: "s3_commands_test"
+                            Key: "Object Key"
+                        , (err, data) ->
+                            if err? then throw err
+                            rbuf = new Buffer(50000)
+                            for i in [0...50000]
+                                rbuf.write "i"
+                            data.body.should.equal rbuf
+                            done()
+
+        describe 'test metadata store', ->
+
+            it 'metadata should be stored and returned correctly', (done) ->
+                s3.createBucket
+                    Bucket: "s3_commands_test"
+                , (err, data) ->
+                    if err? then throw err
+                    s3.putObject
+                        Bucket: "s3_commands_test"
+                        Key: "Meta"
+                        Body: "data"
+                    , (err, data) ->
+                        if err? then throw err
+                        s3.getObject
+                            Bucket: "s3_commands_test"
+                            Key: "Meta"
+                        , (err, data) ->
+                            if err? then throw err
+                            data.body.should.equal "data"
+                            data.metadata.param1 = "one"
+                            data.metadata.param2 = "two, three"
+                            data.Bucket = "s3_commands_test"
+                            data.Key = "Meta"
+                            s3.putObject data, (err, data) ->
+                                if err? then throw err
+                                s3.getObject
+                                    Bucket: "s3_commands_test"
+                                    Key: "Meta"
+                                , (err, data) ->
+                                    if err? then throw err
+                                    data.metadata.param1.should.equal "one"
+                                    data.metadata.param2.should.equal "two, three"
+                                    done()
+
+        describe 'test object copy', ->
+
+            it 'object body should be copied correctly', (done) ->
+
+                s3.createBucket
+                    Bucket: 'test_copy_to'
+                , (err, data) ->
+                    if err? then throw err
+                    s3.createObject
+                        Bucket: 'test_copy_to'
+                        Key: 'key1'
+                        Body 'asdf'
+                    , (err, data) ->
+                        if err? then throw err
+                        s3.copyObject
                             Bucket: 'test_copy_to'
+                            CopySource: 'test_copy_to/key1'
                             Key: 'key2'
                         , (err, data) ->
                             if err? then throw err
-                            data.body.should.equal 'asdf'
+                            s3.getObject
+                                Bucket: 'test_copy_to'
+                                Key: 'key2'
+                            , (err, data) ->
+                                if err? then throw err
+                                data.body.should.equal 'asdf'
 
-    #TODO: rest of test and other tests
-    describe 'test metadata copy', ->
+        #TODO: rest of test and other tests
+        describe 'test metadata copy', ->
 
-        it 'object metadata should be copied correctly', ->
+            it 'object metadata should be copied correctly', (done) ->
 
 
 

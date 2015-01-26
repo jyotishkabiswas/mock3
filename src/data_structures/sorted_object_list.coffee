@@ -20,7 +20,7 @@ class S3MatchSet
 class SortedObjectList
 
     constructor: ->
-        @sorted_set = SortedSet(equals=s3equals, compare=s3compare)
+        @sorted_set = SortedSet([], s3equals, s3compare)
         @object_map = {}
 
     count: ->
@@ -62,7 +62,7 @@ class SortedObjectList
                 @sorted_set.push pseudo
 
         count = 0
-        @sorted_set.forEach (s3_object) =>
+        for s3_object in @sorted_set
             if marker_found and (not prefix or s3_object.name.indexOf(prefix) == 0)
                 ++count
                 if count <= max_keys

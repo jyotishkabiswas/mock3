@@ -5,8 +5,8 @@ class Bucket
 
     constructor: (@name, @creation_date, objects) ->
         @objects = new SortedObjectList()
-        objects.forEach (obj) =>
-            @objects.add objects
+        for obj in objects
+            @objects.add obj
 
     find: (object_name) ->
         @objects.find object_name
@@ -35,4 +35,4 @@ class Bucket
         bq.is_truncated = match_set.is_truncated
         bq
 
-Module.exports = Bucket
+module.exports = Bucket

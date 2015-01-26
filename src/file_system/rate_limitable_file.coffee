@@ -7,7 +7,7 @@ backOffDelay = 0
 backOffFactor = 1.0001
 # facilitates AIMD (additive increase, multiplicative decrease) for backing off
 dampen = (wrapped, thisp) ->
-    retry = =>
+    retry = ->
         args = arguments
         ready = (if backOffDelay then Q.delay(backOffDelay) else Q.resolve())
         ready.then ->

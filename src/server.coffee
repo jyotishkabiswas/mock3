@@ -8,6 +8,8 @@ _ = require 'lodash'
 express = require 'express'
 yargs = require 'yargs'
 
+S3Server = require './server/s3_server'
+
 
 # Command line options.
 argv = yargs
@@ -24,6 +26,9 @@ argv = yargs
     .describe('k', 'specify a SSL private key to be used by the server - requires that a certificate also be supplied and sets port to 443')
     .alias('k', 'key')
     .string('k')
+    .describe('h', 'specify a hostname for the server')
+    .alias('h', 'host')
+    .string('h')
     .argv
 
 SSL = false
@@ -33,41 +38,20 @@ defaultConfig =
     rootDir: null
     sslCert: null
     sslKey: null
+    hostname: 'localhost'
 
 userConfig =
-    port: argv.p
-    rootDir: argv.r
+    port: parseInt argv.p.trim()
+    rootDir: argv.r.trim()
     sslCert: argv.c
     sslKey: argv.k
+    hostname: argv.h
 
 if argv.c and not argv.k or argv.k and not argv.c
     throw new Error('You must specify both a private key and certificate for SSL')
 
-config = _.defaults defaultConfig, userConfig
+config = _.defaults userConfig, defaultConfig
 
-if argv.c and argv.k
-    config.port = 443
-    SSL = true
-
-app = express()
-
-app.get '/', (req, res) ->
-    res.send 'Hello World!'
-
-if SSL
-    try
-        privateKey = fs.readFileSync config.sslKey
-        certificate = fs.readFileSync config.sslCert
-    catch error
-        console.error "Unable to open SSL private key or cert"
-        throw error
-    server = https.createServer
-        key: privateKey,
-        cert: certificate
-    , app
-else
-    server = http.createServer(app)
-
-server.listen(config.port)
-
-console.log "Mock3 listening on #{config.port}"
+server = new S3Server config
+server.listen().then ->
+    console.log "Mock3 listening on #{config.port}"
