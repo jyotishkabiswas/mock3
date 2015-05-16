@@ -9,6 +9,7 @@ multer = require 'multer'
 q = require 'q'
 Servlet = require './servlet'
 FileStore = require '../file_system/file_store'
+XMLAdapter = require './xml_adapter'
 
 class S3Server
 
@@ -27,14 +28,15 @@ class S3Server
         app = express()
         router = express.Router()
         router.use (req, res, next) =>
-            console.log req.method
-            console.log req.params
             switch req.method
                 when 'PUT' then @servlet.do_PUT req, res
                 when 'GET', 'HEAD' then @servlet.do_GET req, res
                 when 'DELETE' then @servlet.do_DELETE req, res
                 when 'POST' then @servlet.do_POST req, res
-        app.use subdomain('deletebucket', router)
+            next()
+
+        app.use subdomain('*', router)
+        app.use router
         app.use bodyparser.json()
         app.use bodyparser.urlencoded({extended: false})
         app.use multer({dest: path.join(__dirname, '..', '..', 'tmp')}, router)
@@ -57,6 +59,7 @@ class S3Server
         d = q.defer()
         @server.listen @port, @hostname, 511, (err) =>
             if err? then throw err
+            console.log "S3 Server running at #{@hostname}:#{@port}."
             d.resolve @
         @server.on 'error', (err) ->
             console.log err

@@ -15,6 +15,15 @@ describe 'File Store Test', ->
                 bucket_obj.name.should.equal 'fileStoreTest'
                 obj = store.get_bucket('fileStoreTest')
                 obj.name.should.equal 'fileStoreTest'
+            .then ->
                 glob FS.join(store.root, 'fileStoreTest'), (err, files) ->
                     FS.base(files[0]).should.equal 'fileStoreTest'
                     done()
+
+    describe 'test delete bucket', ->
+
+        it 'bucket should be deleted', (done) ->
+            store.delete_bucket('fileStoreTest').then (res) ->
+                bucket = store.get_bucket('fileStoreTest')
+                bucket?.should.be.false
+                done()

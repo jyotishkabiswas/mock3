@@ -9,8 +9,8 @@ yaml = require 'js-yaml'
 
 class FileStore
 
-    SHUCK_METADATA_DIR: ".mock3_matadataFFF"
-    SUBSECOND_PRECISION: 3
+    @SHUCK_METADATA_DIR: ".mock3_matadataFFF"
+    @SUBSECOND_PRECISION: 3
 
     constructor: (root) ->
 
@@ -29,7 +29,7 @@ class FileStore
     rate_limit: (rate_limit) ->
         RateLimitableFile.prototype.rate_limit = rate_limit
 
-    buckets: ->
+    get_buckets: ->
         @buckets
 
     get_bucket_folder: (bucket) ->
@@ -55,13 +55,17 @@ class FileStore
         d.promise
 
     delete_bucket: (bucket_name) ->
+        d = q.defer()
         bucket = @get_bucket bucket_name
         unless bucket?
             throw new NoSuchBucket()
         if bucket.objects.length > 0
             throw new BucketNotEmpty()
-        FS.removeTree(@get_bucket_folder(bucket)).then (res) =>
+        FS.removeTree(@get_bucket_folder(bucket)).then (err, res) =>
+            if err? then throw err
             delete @bucket_hash[bucket_name]
+            d.resolve true
+        d.promise
 
 
     get_object: (bucket, object_name, request) ->

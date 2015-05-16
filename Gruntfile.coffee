@@ -61,9 +61,11 @@ module.exports = (grunt) ->
             test:
                 options:
                     title: 'Testing complete'
+                    message: 'All tests have been run.'
             serve:
                 options:
                     title: 'Started s3 server'
+                    message: 'Server is running at localhost.'
 
     grunt.registerTask 'test', [
         'clean:test_root'
